@@ -76,7 +76,7 @@ for id in pool_range:
         print(e)
         continue
 
-with open('bang_party_pool.csv', 'w', encoding='utf-8-sig') as f:
+with open('bang_pool.csv', 'w', encoding='utf-8-sig') as f:
     f.write("id,name,type,start,end,up1,up2,up3\n")
     for item in pooldict:
         f.write(f"{item},")

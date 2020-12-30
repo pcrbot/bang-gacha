@@ -147,7 +147,7 @@ for id in card_range:
         print(e)
         continue
 
-with open('bang_party.csv', 'w', encoding='utf-8-sig') as f:
+with open('bang_card.csv', 'w', encoding='utf-8-sig') as f:
     f.write("id,name,chara,chara_jp,color,rarity,date,get,skillname,skilltype,skilldiscribe\n")
     for item in carddict:
         f.write(f"{item},")
