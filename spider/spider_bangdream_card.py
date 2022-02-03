@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 #config
 card_range=range(500,2000)
 
-icon_dir = 'icon'
+icon_dir = 'card'
 Path(icon_dir).mkdir(parents = True, exist_ok = True)
 
 chlist={"CHU²":"チュチュ",
