@@ -1,14 +1,18 @@
-import os
 import re
 import requests
 import calendar
+import time
+import asyncio
+import aiohttp
+from pathlib import Path
 
 from bs4 import BeautifulSoup
 
 #config
-download_icon=True
-card_range=range(500,1600)
+card_range=range(500,2000)
 
+icon_dir = 'card'
+Path(icon_dir).mkdir(parents = True, exist_ok = True)
 
 chlist={"CHU²":"チュチュ",
 "PAREO":"パレオ",
@@ -46,111 +50,147 @@ chlist={"CHU²":"チュチュ",
 "Tomoe Udagawa":"宇田川巴",
 "Tsugumi Hazawa":"羽沢つぐみ"}
 
-res=requests.get("https://appmedia.jp/bang_dream/5004943")
-soup = BeautifulSoup(res.text, features="lxml")
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.99 Safari/537.36 Edg/97.0.1072.76'
+}
 
-cardappmedia=soup.findAll(attrs={'class':'result_tr_td'})
+def get_data():
+    global get_data_start_time, get_data_end_time
 
-appmediadict ={}
-namelist =[]
+    get_data_start_time = time.time()
+    
+    res=requests.get("https://appmedia.jp/bang_dream/5004943", headers = headers)
+    soup = BeautifulSoup(res.text, features="lxml")
 
-k=0
+    cardappmedia=soup.findAll(attrs={'class':'result_tr_td'})
+    
+    appmediadict ={}
+    namelist =[]
+    
+    k = 0
+    for card in cardappmedia:
+        cid=k;
+        name=card['data-card_name']
+        chara=card['data-chara']
+        color=card['data-type']
+        star=card['data-rarity']
+        skill=card['data-skill_text']
+        get=card['data-get']
+        appmediadict[cid]=[name,chara,color,star,skill,get]
+        namec=name+chara
+        namelist.append(namec)
+        k+=1
 
-for card in cardappmedia:
-    cid=k;
-    name=card['data-card_name']
-    chara=card['data-chara']
-    color=card['data-type']
-    star=card['data-rarity']
-    skill=card['data-skill_text']
-    get=card['data-get']
-    appmediadict[cid]=[name,chara,color,star,skill,get]
-    namec=name+chara
-    namelist.append(namec)
-    k+=1
+    print("appmedia data loaded.")
 
-print("appmedia data loaded.")
+    carddict ={}
 
-carddict ={}
-
-icon_dir = 'bdicon/'
-os.makedirs(icon_dir, exist_ok=True)
-
-for id in card_range:
-    try:
-        res=requests.get(f"https://bandori.party/cards/{id}")
-        if res.status_code==404:
-            print(f"card {id} do not exist")
-            continue
-        soup = BeautifulSoup(res.text, features="lxml")
-
-        cardid = id
-
+    urls = {}
+    for id in card_range:
         try:
-            name = soup.find(attrs={'data-field':'card_name'}).p.text
-        except AttributeError:
-            name = soup.find(string='Title').parent.parent.next_sibling.next_sibling.text
-            name = name.replace(" ","").replace("\n","").replace("\t","")
-        
-        chara = soup.find(attrs={'class':'member-name'}).text
-        if chara in chlist:
-            chara_jp = chlist[chara]
+            res=requests.get(f"https://bandori.party/cards/{id}", headers = headers)
+            if res.status_code==404:
+                print(f"卡面 {id} 不存在")
+                continue
+            soup = BeautifulSoup(res.text, features="lxml")
+
+            cardid = id
+
+            try:
+                name = soup.find(attrs={'data-field':'card_name'}).p.text
+            except AttributeError:
+                name = soup.find(string='Title').parent.parent.next_sibling.next_sibling.text
+                name = name.replace(" ","").replace("\n","").replace("\t","")
             
-        rarity = len(soup.find(attrs={'data-field':'rarity'}).findAll("img"))
+            chara = soup.find(attrs={'class':'member-name'}).text
+            if chara in chlist:
+                chara_jp = chlist[chara]
+                
+            rarity = len(soup.find(attrs={'data-field':'rarity'}).findAll("img"))
 
-        color = soup.find(string='Attribute').parent.parent.next_sibling.next_sibling.text
-        color = color.replace(" ","").replace("\n","").replace("\t","")
-        
-        namec = name + chara_jp
-        if namec in namelist:
-            get = appmediadict[namelist.index(namec)][5]
-        elif rarity==1:
-            get = "初期カード"
-        else:
-            get = "unknown"
-            print(f"error checking appmedia data for card {id}, please check manually.")
+            color = soup.find(string='Attribute').parent.parent.next_sibling.next_sibling.text
+            color = color.replace(" ","").replace("\n","").replace("\t","")
+            
+            namec = name + chara_jp
+            if namec in namelist:
+                get = appmediadict[namelist.index(namec)][5]
+            elif rarity==1:
+                get = "初期カード"
+            else:
+                get = "unknown"
+                print(f"error checking appmedia data for card {id}, please check manually.")
 
-        date = soup.find(attrs={'class':'datetime'}).text
-        month=re.match("(\w*)\s(\d*)\,\s(\d*)\s", date).group(1)
-        day=re.match("(\w*)\s(\d*)\,\s(\d*)\s", date).group(2)
-        year=re.match("(\w*)\s(\d*)\,\s(\d*)\s", date).group(3)
-        month=list(calendar.month_name).index(month)
-        date =f"{year}/{month}/{day}"
-        
-        try:
-            skillname = soup.find(attrs={'data-field':'skill_name'}).p.text
-        except AttributeError:
-            skillname = soup.find(string='Skill name').parent.parent.next_sibling.next_sibling.text
-            skillname = skillname.replace(" ","").replace("\n","").replace("\t","")
-        
-        skilltype = soup.find(attrs={'data-field':'japanese_skill'}).strong.text
-        skilldiscribe = soup.find(attrs={'data-field':'japanese_skill'}).p.text
+            date = soup.find(attrs={'class':'datetime'}).text
+            month=re.match("(\w*)\s(\d*)\,\s(\d*)\s", date).group(1)
+            day=re.match("(\w*)\s(\d*)\,\s(\d*)\s", date).group(2)
+            year=re.match("(\w*)\s(\d*)\,\s(\d*)\s", date).group(3)
+            month=list(calendar.month_name).index(month)
+            date =f"{year}/{month}/{day}"
+            
+            try:
+                skillname = soup.find(attrs={'data-field':'skill_name'}).p.text
+            except AttributeError:
+                skillname = soup.find(string='Skill name').parent.parent.next_sibling.next_sibling.text
+                skillname = skillname.replace(" ","").replace("\n","").replace("\t","")
+            
+            skilltype = soup.find(attrs={'data-field':'japanese_skill'}).strong.text
+            skilldiscribe = soup.find(attrs={'data-field':'japanese_skill'}).p.text
 
-        if download_icon:
             iconlist=soup.findAll(alt='Icon')
             st=0
             for icon in iconlist:
-                png = requests.get(f"http:{icon['src']}", timeout=20).content
-                png_path = os.path.join(icon_dir, f"{cardid}_{st}.png")
-                if os.path.exists(png_path):
-                    continue
+                urls[f"{cardid}_{st}.png"] = f"http:{icon['src']}"
                 st+=1
-                with open(png_path, 'wb') as f:
-                    f.write(png)
-        
-        carddict[id]=[name,chara,chara_jp,color,rarity,date,get,skillname,skilltype,skilldiscribe]
-        
-        if not id % 10:
-            print(f"added {id}")
-    except Exception as e:
-        print(f"error downloading id={id}")
-        print(e)
-        continue
+            
+            carddict[id]=[name,chara,chara_jp,color,rarity,date,get,skillname,skilltype,skilldiscribe]
+            
+            if not id % 10:
+                print(f"added {id}")
+        except Exception as e:
+            print(f"error downloading id={id}")
+            print(e)
+            continue
 
-with open('bang_card.csv', 'w', encoding='utf-8-sig') as f:
-    f.write("id,name,chara,chara_jp,color,rarity,date,get,skillname,skilltype,skilldiscribe\n")
-    for item in carddict:
-        f.write(f"{item},")
-        for attri in carddict[item]:
-            f.write(f"{attri},")
-        f.write("\n")
+    Path('data').mkdir(parents = True, exist_ok = True)
+    with Path('data', 'bang_card.csv').open('w', encoding='utf-8-sig') as f:
+        f.write("id,name,chara,chara_jp,color,rarity,date,get,skillname,skilltype,skilldiscribe\n")
+        for item in carddict:
+            f.write(f"{item},")
+            for attri in carddict[item]:
+                f.write(f"{attri},")
+            f.write("\n")
+    get_data_end_time = time.time()
+    print(f'卡池数据写入完成, 用时{get_data_end_time - get_data_start_time}秒')
+
+    return urls
+
+num = []
+async def aiodownload(name, url):
+    png_path = Path(icon_dir, name)
+    if not png_path.exists():
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                png_path.write_bytes(await resp.content.read())
+                print(f'文件 {name} 下载成功')
+                num.append(1)
+    else:
+        print(f'文件 {name} 已存在，不再进行下载')
+
+async def main():
+    main_start = time.time()
+
+    urls = get_data()
+    
+    tasks = [aiodownload(k, v) for k, v in urls.items()] # 生成执行任务的列表。items()，返回包含每个键值对的元组的列表，通过使用items()函数遍历键和值
+    await asyncio.wait(tasks)
+
+    main_end = time.time()
+
+    print(f'''
+全部完成！！！
+共用时{main_end - main_start}秒，其中下载用时{(main_end - main_start) - (get_data_end_time - get_data_start_time)}秒
+共下载成功{len(num)}个文件，{len(urls) - len(num)}个文件未下载
+'''.strip())
+
+if __name__ == "__main__":
+    asyncio.run(main()) 
