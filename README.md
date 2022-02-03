@@ -8,4 +8,4 @@
 
 把自己更新数据用的爬虫整理了下放上来了，写的很菜，不保证效果，用出bug概不负责(x)
 
-运行爬虫后得到的pool和icon文件夹，然后将这两个文件夹放入...\HoshinoBot\res\img\bangdreampic目录下即可。
+运行爬虫后得到的pool和card文件夹，然后将这两个文件夹放入...\HoshinoBot\res\img\bangdreampic目录下即可。
