@@ -7,3 +7,5 @@
 卡牌与卡池数据主要来自bandori.party、bestdori.com以及appmedia.jp三个网站，感谢各网站建设者的劳动。另外感谢在地狱中仰望天堂大佬在卡池数据爬取上的协助。
 
 把自己更新数据用的爬虫整理了下放上来了，写的很菜，不保证效果，用出bug概不负责(x)
+
+运行爬虫后得到的pool和icon文件夹，然后将这两个文件夹放入...\HoshinoBot\res\img\bangdreampic目录下即可。
